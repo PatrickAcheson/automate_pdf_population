@@ -52,7 +52,7 @@ def get_current_date_formatted():
     today = datetime.date.today()
     day = today.day
     suffix = "th" if 11 <= day <= 13 else {1:"st", 2:"nd", 3:"rd"}.get(day % 10, "th")
-    return today.strftime(f"dated %d{suffix} %B %Y")
+    return today.strftime(f"{day}{suffix} %B %Y")
 
 def format_input_date(date_str):
     try:
@@ -89,10 +89,15 @@ def parse_name_and_address(full_text):
     return {"figure3": name, "figure4": address}
 
 def main():
-    quote_doc = "Quotation_Example.docx"
-    t_and_cs_template = "T&Cs_Template.docx"
-    output_docx = "final_output.docx"
-    output_pdf = "final_output.pdf"
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    quote_folder = os.path.join(base_dir, "YOUR-QUOTE")
+    template_folder = os.path.join(base_dir, "YOUR-TEMPLATE")
+    completed_folder = os.path.join(base_dir, "COMPLETED")
+
+    quote_doc = os.path.join(quote_folder, "Quotation_Example.docx")
+    t_and_cs_template = os.path.join(template_folder, "T&Cs_Template.docx")
+    output_docx = os.path.join(completed_folder, "final_output.docx")
+    output_pdf = os.path.join(completed_folder, "final_output.pdf")
 
     quote_data = parse_quote_doc(quote_doc)
     figure2_val = get_today_dd_mm_yy()
@@ -106,6 +111,7 @@ def main():
     proposed_week = simpledialog.askstring("Input", "Enter Proposed Week (dd/mm/yy):")
     works_week = simpledialog.askstring("Input", "Enter Works Week (dd/mm/yy):")
     root.destroy()
+
     if proposed_week:
         proposed_week = format_input_date(proposed_week)
     if works_week:
@@ -123,12 +129,14 @@ def main():
         "figure8": proposed_week if proposed_week else "",
         "figure9": works_week if works_week else ""
     }
+
     fill_t_and_cs(t_and_cs_template, output_docx, context)
     try:
         convert(output_docx, output_pdf)
         print("Done! Created", output_docx, "and", output_pdf)
     except Exception as e:
         print("docx2pdf failed:", e)
+
     print("Used placeholders:", context)
 
 if __name__ == "__main__":

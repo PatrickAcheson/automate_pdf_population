@@ -197,3 +197,7 @@ pdf_files/.DS_Store
 .DS_Store
 .DS_Store
 word_only/~$nal_output.docx
+word_only/COMPLETED/final_output.docx
+word_only/YOUR-QUOTE/Quotation_Example.docx
+.gitignore
+word_only/YOUR-TEMPLATE/T&Cs_Template.docx
