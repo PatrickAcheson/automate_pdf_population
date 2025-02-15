@@ -9,6 +9,9 @@ from docx2pdf import convert
 def parse_quote_doc(quote_path):
     result = docx2python(quote_path)
     full_text = result.text
+
+    print(full_text)
+
     figure1_val = parse_label(full_text, "Quote Ref")
     figure2_val = parse_label(full_text, "Date")
     figure7_raw = parse_amount(full_text)
@@ -18,9 +21,7 @@ def parse_quote_doc(quote_path):
         "figure2": figure2_val,
         "figure7_raw": figure7_raw,
         "figure3": name_addr.get("figure3", ""),
-        "figure4": name_addr.get("figure4", ""),
-        "figure10": name_addr.get("figure10", ""),
-        "figure11": name_addr.get("figure11", "")
+        "figure4": name_addr.get("figure4", "")
     }
 
 def parse_label(full_text, label):
@@ -79,23 +80,23 @@ def parse_name_and_address(full_text):
     address = " ".join(address_lines)
     return {
         "figure3": name,
-        "figure4": address,
-        "figure10": address,
-        "figure11": name
+        "figure4": address
     }
 
 def main():
+    import json
     quote_doc = "Quotation_Example.docx"
     t_and_cs_template = "T&Cs_Template.docx"
     output_docx = "final_output.docx"
     output_pdf = "final_output.pdf"
 
     quote_data = parse_quote_doc(quote_doc)
-    figure2_val = get_today_dd_mm_yy()
+    figure2_val = quote_data["figure2"] if quote_data["figure2"] else get_today_dd_mm_yy()
     figure6_val = get_current_date_formatted()
     figure7_val = convert_amount_to_words(quote_data["figure7_raw"]) if quote_data["figure7_raw"] else ""
     name_val = quote_data["figure3"]
     address_val = quote_data["figure4"]
+
     context = {
         "figure1": quote_data["figure1"],
         "figure2": figure2_val,
@@ -108,10 +109,10 @@ def main():
         "figure8": "",
         "figure9": ""
     }
+
+    print(json.dumps(context, indent=4))
+
     fill_t_and_cs(t_and_cs_template, output_docx, context)
-
-    print(context)
-
     try:
         convert(output_docx, output_pdf)
         print("Done! Created", output_docx, "and", output_pdf)
