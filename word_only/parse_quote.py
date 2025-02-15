@@ -7,30 +7,23 @@ from docxtpl import DocxTemplate
 from docx2pdf import convert
 
 def parse_quote_doc(quote_path):
-    """
-    Uses docx2python to extract text from the quote docx, including text boxes.
-    Searches for:
-      - "Quote Ref: ..."
-      - a '£' amount for figure7
-    Returns a dict with figure1, figure7_raw (the raw £ amount).
-    """
     result = docx2python(quote_path)
     full_text = result.text
-
-    figure1_val = parse_label(full_text, "Quote Ref:")
-    figure2_val = parse_label(full_text, "Date:")
+    figure1_val = parse_label(full_text, "Quote Ref")
+    figure2_val = parse_label(full_text, "Date")
     figure7_raw = parse_amount(full_text)
-
+    name_addr = parse_name_and_address(full_text)
     return {
         "figure1": figure1_val,
         "figure2": figure2_val,
-        "figure7_raw": figure7_raw
+        "figure7_raw": figure7_raw,
+        "figure3": name_addr.get("figure3", ""),
+        "figure4": name_addr.get("figure4", ""),
+        "figure10": name_addr.get("figure10", ""),
+        "figure11": name_addr.get("figure11", "")
     }
 
 def parse_label(full_text, label):
-    """
-    Finds a line like "Quote Ref: AB_123" in full_text.
-    """
     pattern = rf'^{label}:\s*(.+)$'
     for line in full_text.splitlines():
         line = line.strip()
@@ -40,81 +33,90 @@ def parse_label(full_text, label):
     return ""
 
 def parse_amount(full_text):
-    """
-    Looks for a simple pattern of '£' followed by digits (possibly decimal)
-    E.g. "£400", "£750.00"
-    Returns the first match or "" if none found.
-    """
     match = re.search(r'£\d+(\.\d+)?', full_text)
-    if match:
-        return match.group(0)
-    return ""
+    return match.group(0) if match else ""
 
 def convert_amount_to_words(amount_str):
-    """
-    Takes "£400" -> "four hundred pounds zero pence (£400)"
-    """
     if not amount_str.startswith("£"):
         return amount_str
-
     numeric_part = amount_str.replace("£", "").strip()
     value = float(numeric_part)
     spelled_out = num2words(value, to='currency', currency='GBP')
     return f"{spelled_out} ({amount_str})"
 
 def get_today_dd_mm_yy():
-    """
-    Returns today's date in DD/MM/YY format
-    """
     today = datetime.date.today()
     return today.strftime("%d/%m/%y")
 
+def get_current_date_formatted():
+    today = datetime.date.today()
+    day = today.day
+    suffix = "th" if 11 <= day <= 13 else {1:"st", 2:"nd", 3:"rd"}.get(day % 10, "th")
+    return today.strftime(f"dated %d{suffix} %B %Y")
+
 def fill_t_and_cs(template_path, output_docx, context):
-    """
-    docxtpl to fill placeholders in T&Cs_Template.docx
-    """
     tpl = DocxTemplate(template_path)
     tpl.render(context)
     tpl.save(output_docx)
 
+def parse_name_and_address(full_text):
+    lines = [ln.strip() for ln in full_text.splitlines() if ln.strip()]
+    name = ""
+    address_lines = []
+    for i, line in enumerate(lines):
+        if re.search(r'\d', line):
+            continue
+        if "@" in line:
+            continue
+        if len(line.split()) >= 2:
+            name = line
+            for j in range(i+1, len(lines)):
+                if re.search(r'\d', lines[j]):
+                    address_lines.append(lines[j])
+                    if len(address_lines) == 2:
+                        break
+            break
+    address = " ".join(address_lines)
+    return {
+        "figure3": name,
+        "figure4": address,
+        "figure10": address,
+        "figure11": name
+    }
+
 def main():
-    # 1) quote doc path
     quote_doc = "Quotation_Example.docx"
-    # 2) t&c template doc path
     t_and_cs_template = "T&Cs_Template.docx"
-    # 3) output docx/pdf
     output_docx = "final_output.docx"
     output_pdf = "final_output.pdf"
 
-    # 4) parse the quote
     quote_data = parse_quote_doc(quote_doc)
-
-    print(quote_data)
-    exit()
-
-    figure1_val = quote_data["figure1"]
-    figure7_raw = quote_data["figure7_raw"]
-
-    # 5) today's date
     figure2_val = get_today_dd_mm_yy()
-
-    # 6) convert figure7
-    figure7_val = convert_amount_to_words(figure7_raw) if figure7_raw else ""
-
-    # placeholders
+    figure6_val = get_current_date_formatted()
+    figure7_val = convert_amount_to_words(quote_data["figure7_raw"]) if quote_data["figure7_raw"] else ""
+    name_val = quote_data["figure3"]
+    address_val = quote_data["figure4"]
     context = {
-        "figure1": figure1_val,
+        "figure1": quote_data["figure1"],
         "figure2": figure2_val,
-        "figure7": figure7_val
+        "figure3": name_val,
+        "figure4": address_val,
+        "figure10": address_val,
+        "figure11": name_val,
+        "figure7": figure7_val,
+        "figure6": figure6_val,
+        "figure8": "",
+        "figure9": ""
     }
-
-    # 7) fill T&Cs doc
     fill_t_and_cs(t_and_cs_template, output_docx, context)
 
-    # 8) convert to PDF
-    convert(output_docx, output_pdf)
+    print(context)
 
-    print("Done! Created", output_docx, "and", output_pdf)
+    try:
+        convert(output_docx, output_pdf)
+        print("Done! Created", output_docx, "and", output_pdf)
+    except Exception as e:
+        print("docx2pdf failed:", e)
     print("Used placeholders:", context)
 
 if __name__ == "__main__":
